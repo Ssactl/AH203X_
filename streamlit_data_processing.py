@@ -2,10 +2,18 @@ import streamlit as st
 import pandas as pd
 from streamlit.components.v1 import html
 import plotly.express as px
+from streamlit_gsheets import GSheetsConnection
 
 
-df_location=pd.read_csv(f'../../3.Data/OneDrive - KTH/GTFS Data/stops_2022.csv')
-df = pd.read_csv(f'../../3.Data/OneDrive - KTH/GTFS Data/avl_data_corrected_2022_05.csv', header = 0)
+# df_location=pd.read_csv(f'../../3.Data/OneDrive - KTH/GTFS Data/stops_2022.csv')
+# df = pd.read_csv(f'../../3.Data/OneDrive - KTH/GTFS Data/avl_data_corrected_2022_05.csv', header = 0)
+
+# Create a connection object.
+conn = st.connection("gsheets_stops_2022", type=GSheetsConnection)
+df_location = conn.read()
+
+conn = st.connection("gsheets_avl_data_corrected_2022_05", type=GSheetsConnection)
+df = conn.read()
 
 st.markdown('<style>body { font-size: 18px; }</style>', unsafe_allow_html=True)
 
@@ -52,8 +60,6 @@ st.text(f'筛选出在该区域内的 站点数量：{len(selected_stops)}')
 
 st.text(f'选定区域内 站点 空间分布图:')
 st.map(selected_stops, latitude='lat', longitude='lon',size=8, color='#e74c3c')
-
-
 
 #################################################################################################################
 ####################### 2.1 
@@ -183,7 +189,8 @@ draw_stop_delay_h_and_m(f'Distribution of Average Delay by Stop',average_delay_b
 
 st.write(f'https://ssactl.github.io/AH203X_/average_delay_by_stop_map.html')
 # 读取 HTML 文件内容
-file_path = f'../2.code/results/average_delay_by_stop_map.html'
+# file_path = f'../2.code/results/average_delay_by_stop_map.html'
+file_path = f'average_delay_by_stop_map.html'
 with open(file_path, "r", encoding="utf-8") as file:
     html_content = file.read()
 # 将 HTML 内容嵌入到 Streamlit 中
