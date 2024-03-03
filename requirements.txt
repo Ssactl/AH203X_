@@ -4,3 +4,4 @@ streamlit==1.31.1
 git+https://github.com/streamlit/gsheets-connection
 plotly==5.1.0
 st-gsheets-connection==0.0.4
+gspread==5.12.4
