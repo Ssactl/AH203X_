@@ -1,7 +1,6 @@
 # requirements.txt
 streamlit
 plotly
-gcsfs
 st-gsheets-connection
 st-files-connection
-
+gcsfs
