@@ -51,6 +51,7 @@ df_selected= df[df['to_stop_san'].isin(selected_sans)]
 all_stops = pd.DataFrame(df['to_stop_san'].unique(), columns=['to_stop_san'])
 # 合并数据框
 all_stops = pd.merge(all_stops, df_location[['StopAreaNumber', 'lon', 'lat','StopAreaName']], left_on='to_stop_san', right_on='StopAreaNumber', how='left')
+
 st.text(f'站点数量：{len(all_stops)}')
 # 删除 'to_stop' 列中的 NaN 值
 all_stops = all_stops.dropna()
