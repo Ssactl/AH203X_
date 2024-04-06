@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Leaflet Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+      #nodeDegreePanel {
+        display: flex;
+      }
+      #outDegrees,
+      #inDegrees {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 200px;
+        padding-right: 10px;
+      }
+      .scrolling-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        overflow-y: auto;
+        max-height: 200px; /* 设置滚动区域最大高度 */
+      }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  </head>
+  <body>
+    <div id="map" style="height: 500px"></div>
+    <div>
+      <input type="text" id="searchInput" placeholder="Enter Stop ID" />
+      <button id="searchButton">Search</button>
+    </div>
+    <div id="layerList"></div>
+
+    <div id="nodeDegreePanel">
+      <h3>Node Degrees</h3>
+      <div id="outDegrees">
+        <h4>Out Degrees (Descending)</h4>
+        <ul id="outDegreesList"></ul>
+      </div>
+      <div id="inDegrees">
+        <h4>In Degrees (Descending)</h4>
+        <ul id="inDegreesList"></ul>
+      </div>
+    </div>
+
+    <script>
+      // 发送 AJAX 请求获取节点数据
+      $.ajax({
+        url: "nodes.json",
+        dataType: "json",
+        success: function (nodes) {
+          // 创建 Leaflet 地图对象
+          let map = L.map("map").setView(
+            [59.3335973571207, 17.9804025430153],
+            12
+          );
+
+          // 添加 OpenStreetMap 瓦片图层
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          }).addTo(map);
+
+          // 创建图层对象
+          let nodesWithoutEdgesLayer = L.layerGroup();
+          let lag0EdgesLayer = L.layerGroup();
+          let nodesWithEdgesLayer = L.layerGroup();
+          let lag1EdgesLayer = L.layerGroup();
+          let nodeDegreesLayer = L.layerGroup();
+
+          // 定义绿色和蓝色图标选项
+          let greenIconOptions = {
+            iconUrl:
+              "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41],
+          };
+
+          let blueIconOptions = {
+            iconUrl:
+              "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41],
+          };
+
+          // 定义红色图标选项
+          let redIconOptions = {
+            iconUrl:
+              "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41],
+          };
+
+          // 创建绿色和蓝色图标
+          let greenIcon = L.icon(
+            Object.assign({}, greenIconOptions, {
+              iconUrl:
+                "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+            })
+          );
+          let blueIcon = L.icon(
+            Object.assign({}, blueIconOptions, {
+              iconUrl:
+                "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+            })
+          );
+          // 创建红色图标
+          let redIcon = L.icon(
+            Object.assign({}, redIconOptions, {
+              iconUrl:
+                "https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+            })
+          );
+
+          // 遍历节点数据
+          nodes.forEach(function (node) {
+            let lon = node.lon_shifted;
+            let lat = node.lat_shifted;
+            let popupText = node.StopAreaName + "<br>" + node.stop_id;
+
+            // 判断节点的 in_edges 和 out_edges 是否为空
+            if (node.in_edges.length > 0 || node.out_edges.length > 0) {
+              // 如果有边，则添加到带有边的图层中
+              L.marker([lat, lon], { icon: greenIcon })
+                .bindPopup(popupText)
+                .addTo(nodesWithEdgesLayer);
+            } else {
+              // 如果没有边，则添加到没有边的图层中
+              L.marker([lat, lon], { icon: redIcon })
+                .bindPopup(popupText)
+                .addTo(nodesWithoutEdgesLayer);
+            }
+          });
+
+          // // 添加边
+          // edgesWithLagAttributes.forEach(function (edge) {
+          //   let sourceNode = edge[0];
+          //   let targetNode = edge[1];
+          //   let lag = edge[2];
+          //   let sourceCoords = [sourceNode.lon_shifted, sourceNode.lat_shifted];
+          //   let targetCoords = [targetNode.lon_shifted, targetNode.lat_shifted];
+          //   let lagText = "lag=" + lag;
+          //   let polylineOptions = {
+          //     color: lag == 0 ? "blue" : "yellow",
+          //     tooltip: lagText,
+          //   };
+          //   L.polyline([sourceCoords, targetCoords], polylineOptions).addTo(
+          //     lag0EdgesLayer
+          //   );
+          // });
+
+          // 添加节点的出入度标记和边
+
+          // 创建一个子图层字典，用于存储每个点的子图层
+          let nodeDegreesLayers = {};
+          nodes.forEach(function (node) {
+            // 如果出入度都不为0，才添加标记和边
+            if (node.out_edges.length !== 0 && node.in_edges.length !== 0) {
+              let subLayer = L.layerGroup(); // 创建子图层
+
+              const nodeCoords = [node.lat_shifted, node.lon_shifted];
+              let popupText =
+                node.StopAreaName +
+                "<br>" +
+                node.stop_id +
+                "<br>out_degrees(G): " +
+                node.out_edges.length +
+                "<br>in_degrees(R): " +
+                node.in_edges.length;
+
+              // 创建一个变量来计算自指边数量
+              let selfLoopCount = 0;
+              // 遍历节点数据
+              node.out_edges.forEach(function (nodesID) {
+                // 检查节点的出度边是否有自指的边
+                if (nodesID[1] === node.stop_id) {
+                  // 如果找到自指边，则增加自指边数量
+                  selfLoopCount++;
+                }
+              });
+
+              // 将自指边数量添加到弹出窗口文本中
+              popupText += "<br>Number of self-loop edges: " + selfLoopCount;
+              L.marker(nodeCoords, { icon: redIcon })
+                .bindPopup(popupText)
+                .addTo(subLayer);
+
+              // 添加节点的出度边
+              node.out_edges.forEach(function (nodesID) {
+                // 如果目标节点与当前节点butong
+                if (nodesID[1] !== node.stop_id) {
+                  const targetNode = nodes.find(function (n) {
+                    return n.stop_id === nodesID[1];
+                  });
+
+                  const targetCoords = [
+                    targetNode.lat_shifted,
+                    targetNode.lon_shifted,
+                  ];
+
+                  // console.log([nodeCoords, targetCoords]);
+                  let popupText =
+                    targetNode.StopAreaName + "<br>" + targetNode.stop_id;
+                  L.marker(targetCoords, { icon: blueIcon })
+                    .bindPopup(popupText)
+                    .addTo(subLayer);
+                  L.polyline([nodeCoords, targetCoords], {
+                    color: "green",
+                    tooltip: "out",
+                  }).addTo(subLayer);
+                } else {
+                  console.log(nodesID[1], node.stop_id);
+                }
+              });
+
+              // 添加节点的入度边
+              node.in_edges.forEach(function (nodesID) {
+                if (nodesID[0] !== node.stop_id) {
+                  const sourceNode = nodes.find(function (n) {
+                    return n.stop_id === nodesID[0];
+                  });
+                  const sourceCoords = [
+                    sourceNode.lat_shifted,
+                    sourceNode.lon_shifted,
+                  ];
+                  let popupText =
+                    sourceNode.StopAreaName + "<br>" + sourceNode.stop_id;
+                  L.marker(sourceCoords, { icon: blueIcon })
+                    .bindPopup(popupText)
+                    .addTo(subLayer);
+                  L.polyline([sourceCoords, nodeCoords], {
+                    color: "red",
+                    tooltip: "in",
+                  }).addTo(subLayer);
+                }
+              });
+
+              // 将子图层存储到字典中
+              const id = node.stop_id;
+              nodeDegreesLayers[id] = subLayer;
+            }
+          });
+
+          // 将图层添加到地图
+          nodesWithEdgesLayer.addTo(map);
+          nodesWithoutEdgesLayer.addTo(map);
+          // lag0EdgesLayer.addTo(map);
+          // lag1EdgesLayer.addTo(map);
+          // node_degrees_layers.addTo(map);
+
+          // 创建图层控制面板
+          var baseLayers = {
+            "Nodes with Edges": nodesWithEdgesLayer,
+            "Nodes without Edges": nodesWithoutEdgesLayer,
+          };
+
+          L.control.layers(null, baseLayers).addTo(map);
+          L.control.layers(null, nodeDegreesLayers).addTo(map);
+
+          // 添加搜索功能
+          $("#searchButton").click(function () {
+            var stopID = $("#searchInput").val();
+            if (stopID && nodeDegreesLayers[stopID]) {
+              if (!map.hasLayer(nodeDegreesLayers[stopID])) {
+                map.addLayer(nodeDegreesLayers[stopID]);
+                // 添加复选框
+                var checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.id = stopID;
+                checkbox.checked = true;
+                checkbox.addEventListener("change", function () {
+                  if (this.checked) {
+                    map.addLayer(nodeDegreesLayers[this.id]);
+                  } else {
+                    map.removeLayer(nodeDegreesLayers[this.id]);
+                  }
+                });
+                var label = document.createElement("label");
+                label.htmlFor = stopID;
+                label.appendChild(document.createTextNode(stopID));
+                $("#layerList").append(checkbox);
+                $("#layerList").append(label);
+              }
+            } else {
+              alert("Stop ID not found!");
+            }
+          });
+          // 显示节点的出度和入度
+          displayNodeDegrees();
+
+          function displayNodeDegrees() {
+            let sortedNodesByOutDegree = Object.keys(nodeDegreesLayers).sort(
+              function (a, b) {
+                return (
+                  nodes.find((node) => node.stop_id === b).out_edges.length -
+                  nodes.find((node) => node.stop_id === a).out_edges.length
+                );
+              }
+            );
+
+            let sortedNodesByInDegree = Object.keys(nodeDegreesLayers).sort(
+              function (a, b) {
+                return (
+                  nodes.find((node) => node.stop_id === b).in_edges.length -
+                  nodes.find((node) => node.stop_id === a).in_edges.length
+                );
+              }
+            );
+
+            $("#outDegreesList").empty();
+            $("#inDegreesList").empty();
+
+            sortedNodesByOutDegree.forEach(function (stopID) {
+              let listItem = document.createElement("li");
+              listItem.textContent =
+                stopID +
+                ": " +
+                nodes.find((node) => node.stop_id === stopID).out_edges.length;
+              $("#outDegreesList").append(listItem);
+            });
+
+            sortedNodesByInDegree.forEach(function (stopID) {
+              let listItem = document.createElement("li");
+              listItem.textContent =
+                stopID +
+                ": " +
+                nodes.find((node) => node.stop_id === stopID).in_edges.length;
+              $("#inDegreesList").append(listItem);
+            });
+          }
+        },
+      });
+    </script>
+  </body>
+</html>
