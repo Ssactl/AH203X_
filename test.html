@@ -5,6 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-polylinedecorator/dist/leaflet.polylineDecorator.css"
+    />
     <style>
       #nodeDegreePanel {
         display: flex;
@@ -23,13 +27,31 @@
         overflow-y: auto;
         max-height: 200px; /* 设置滚动区域最大高度 */
       }
+      /* 调整搜索框和复选框部分样式 */
+      #searchInput {
+        width: 300px; /* 增加搜索框宽度 */
+        height: 40px;
+        margin-bottom: 10px; /* 增加下方间距 */
+        font-size: 16px; /* 设置字体大小 */
+      }
+      #searchButton {
+        height: 40px; /* 增加按钮高度 */
+        font-size: 16px; /* 设置字体大小 */
+      }
+      #layerList {
+        margin-top: 5px; /* 增加上方间距 */
+        margin-right: 5px;
+      }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.polylineDecorator"></script>
+    <!-- Leaflet.PolylineDecorator JavaScript -->
+    <script src="https://unpkg.com/leaflet-polylinedecorator/dist/leaflet.polylineDecorator.js"></script>
+    <script src="leaflet.curve.js"></script>
   </head>
   <body>
-    <div id="map" style="height: 500px"></div>
+    <div id="map" style="height: 800px"></div>
     <div>
       <input type="text" id="searchInput" placeholder="Enter Stop ID" />
       <button id="searchButton">Search</button>
@@ -167,7 +189,10 @@
           nodes.forEach(function (node) {
             // 如果出入度都不为0，才添加标记和边
             if (node.out_edges.length !== 0 && node.in_edges.length !== 0) {
-              let subLayer = L.layerGroup(); // 创建子图层
+              let subLayerLag0 = L.layerGroup(); // 创建子图层
+              let subLayerLag1 = L.layerGroup(); // 创建子图层
+              let subLayer;
+              let lag;
 
               const nodeCoords = [node.lat_shifted, node.lon_shifted];
               let popupText =
@@ -194,12 +219,28 @@
               popupText += "<br>Number of self-loop edges: " + selfLoopCount;
               L.marker(nodeCoords, { icon: redIcon })
                 .bindPopup(popupText)
-                .addTo(subLayer);
+                .addTo(subLayerLag0);
+              L.marker(nodeCoords, { icon: redIcon })
+                .bindPopup(popupText)
+                .addTo(subLayerLag1);
+
+              // 创建箭头线数组
+              let arrowLinesOut = [];
+              let arrowLinesIn = [];
 
               // 添加节点的出度边
               node.out_edges.forEach(function (nodesID) {
                 // 如果目标节点与当前节点butong
                 if (nodesID[1] !== node.stop_id) {
+                  //根据 lag 属性将边添加到不同的图层中
+                  lag = nodesID[2].lag;
+                  // 根据 lag 属性将边添加到不同的图层中
+                  if (lag == 1) {
+                    subLayer = subLayerLag1;
+                  } else {
+                    subLayer = subLayerLag0;
+                  }
+
                   const targetNode = nodes.find(function (n) {
                     return n.stop_id === nodesID[1];
                   });
@@ -215,10 +256,28 @@
                   L.marker(targetCoords, { icon: blueIcon })
                     .bindPopup(popupText)
                     .addTo(subLayer);
-                  L.polyline([nodeCoords, targetCoords], {
-                    color: "green",
-                    tooltip: "out",
-                  }).addTo(subLayer);
+
+                  // 计算两点之间的距离
+                  const distance = Math.sqrt(
+                    Math.pow(nodeCoords[0] - targetCoords[0], 2) +
+                      Math.pow(nodeCoords[1] - targetCoords[1], 2)
+                  );
+
+                  // 创建箭头线的中间点坐标，稍微偏移以避免重叠
+                  const midPointCoordsOut = [
+                    (nodeCoords[0] + targetCoords[0]) / 2 + 0.001, // 中点的纬度
+                    (nodeCoords[1] + targetCoords[1]) / 2 - 0.001, // 中点的经度
+                  ];
+
+                  // 创建箭头线，并设置曲线路径
+                  let arrowLine = L.polyline(
+                    [
+                      nodeCoords, // 起点
+                      targetCoords, // 终点
+                    ],
+                    { color: "green", tooltip: "out" } // 设置箭头线的颜色和工具提示
+                  ).addTo(subLayer);
+                  arrowLinesOut.push(arrowLine);
                 } else {
                   console.log(nodesID[1], node.stop_id);
                 }
@@ -227,9 +286,21 @@
               // 添加节点的入度边
               node.in_edges.forEach(function (nodesID) {
                 if (nodesID[0] !== node.stop_id) {
+                  //根据 lag 属性将边添加到不同的图层中
+                  lag = nodesID[2].lag;
+                  console.log(nodesID);
+                  console.log(lag);
+                  // 根据 lag 属性将边添加到不同的图层中
+                  if (lag == 1) {
+                    subLayer = subLayerLag1;
+                  } else {
+                    subLayer = subLayerLag0;
+                  }
+
                   const sourceNode = nodes.find(function (n) {
                     return n.stop_id === nodesID[0];
                   });
+
                   const sourceCoords = [
                     sourceNode.lat_shifted,
                     sourceNode.lon_shifted,
@@ -239,30 +310,78 @@
                   L.marker(sourceCoords, { icon: blueIcon })
                     .bindPopup(popupText)
                     .addTo(subLayer);
-                  L.polyline([sourceCoords, nodeCoords], {
-                    color: "red",
-                    tooltip: "in",
-                  }).addTo(subLayer);
+
+                  // 计算两点之间的距离
+                  const distance = Math.sqrt(
+                    Math.pow(sourceCoords[0] - nodeCoords[0], 2) +
+                      Math.pow(sourceCoords[1] - nodeCoords[1], 2)
+                  );
+
+                  const midPointCoordsIn = [
+                    (sourceCoords[0] + nodeCoords[0]) / 2 - 0.001, // 中点的纬度
+                    (sourceCoords[1] + nodeCoords[1]) / 2 + 0.001, // 中点的经度
+                  ];
+
+                  // 创建箭头线，并设置曲线路径
+                  let arrowLine = L.curve(
+                    [
+                      "M",
+                      sourceCoords, // 起点
+                      "Q",
+                      midPointCoordsIn,
+
+                      nodeCoords, // 终点
+                    ],
+                    { color: "red", tooltip: "in" } // 设置箭头线的颜色和工具提示
+                  ).addTo(subLayer);
+                  arrowLinesIn.push(arrowLine);
                 }
               });
 
+              // // 使用 Leaflet.PolylineDecorator 插件的 decorate 方法为箭头线数组添加箭头
+              // let arrowDecoratorOut = L.polylineDecorator(arrowLinesOut, {
+              //   patterns: [
+              //     {
+              //       offset: 25,
+              //       repeat: 50,
+              //       symbol: L.Symbol.arrowHead({
+              //         pixelSize: 10,
+              //         polygon: false,
+              //         pathOptions: { color: "green" },
+              //       }),
+              //     },
+              //   ],
+              // }).addTo(subLayer);
+
+              // // 使用 Leaflet.PolylineDecorator 插件的 decorate 方法为箭头线数组添加箭头
+              // let arrowDecoratorIn = L.polylineDecorator(arrowLinesIn, {
+              //   patterns: [
+              //     {
+              //       offset: 25,
+              //       repeat: 200,
+              //       symbol: L.Symbol.arrowHead({
+              //         pixelSize: 10,
+              //         polygon: false,
+              //         pathOptions: { color: "red" },
+              //       }),
+              //     },
+              //   ],
+              // }).addTo(subLayer);
+
               // 将子图层存储到字典中
-              const id = node.stop_id;
-              nodeDegreesLayers[id] = subLayer;
+              const id0 = node.stop_id + "_lag=0";
+              const id1 = node.stop_id + "_lag=1";
+              nodeDegreesLayers[id0] = subLayerLag0;
+              nodeDegreesLayers[id1] = subLayerLag1;
             }
           });
-
-          // 将图层添加到地图
-          nodesWithEdgesLayer.addTo(map);
-          nodesWithoutEdgesLayer.addTo(map);
-          // lag0EdgesLayer.addTo(map);
-          // lag1EdgesLayer.addTo(map);
-          // node_degrees_layers.addTo(map);
 
           // 创建图层控制面板
           var baseLayers = {
             "Nodes with Edges": nodesWithEdgesLayer,
             "Nodes without Edges": nodesWithoutEdgesLayer,
+            // "Edges with lag=0": lag0EdgesLayer,
+            // "Edges with lag=1": lag1EdgesLayer,
           };
 
           L.control.layers(null, baseLayers).addTo(map);
@@ -270,53 +389,68 @@
 
           // 添加搜索功能
           $("#searchButton").click(function () {
-            var stopID = $("#searchInput").val();
-            if (stopID && nodeDegreesLayers[stopID]) {
-              if (!map.hasLayer(nodeDegreesLayers[stopID])) {
-                map.addLayer(nodeDegreesLayers[stopID]);
-                // 添加复选框
-                var checkbox = document.createElement("input");
-                checkbox.type = "checkbox";
-                checkbox.id = stopID;
-                checkbox.checked = true;
-                checkbox.addEventListener("change", function () {
-                  if (this.checked) {
-                    map.addLayer(nodeDegreesLayers[this.id]);
-                  } else {
-                    map.removeLayer(nodeDegreesLayers[this.id]);
-                  }
-                });
-                var label = document.createElement("label");
-                label.htmlFor = stopID;
-                label.appendChild(document.createTextNode(stopID));
-                $("#layerList").append(checkbox);
-                $("#layerList").append(label);
+            let stopID = $("#searchInput").val();
+            if (stopID) {
+              let layer1 = nodeDegreesLayers[stopID + "_lag=0"];
+              let layer2 = nodeDegreesLayers[stopID + "_lag=1"];
+              if (layer1 || layer2) {
+                if (layer1 && !map.hasLayer(layer1)) {
+                  map.addLayer(layer1);
+                  addCheckbox(stopID + "_lag=0");
+                }
+                if (layer2 && !map.hasLayer(layer2)) {
+                  map.addLayer(layer2);
+                  addCheckbox(stopID + "_lag=1");
+                }
+              } else {
+                alert("Stop ID not found!");
               }
             } else {
-              alert("Stop ID not found!");
+              alert("Please enter a Stop ID!");
             }
           });
+
+          function addCheckbox(stopID) {
+            // 添加复选框和标签
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = stopID;
+            checkbox.checked = true;
+            checkbox.addEventListener("change", function () {
+              if (this.checked) {
+                map.addLayer(nodeDegreesLayers[this.id]);
+              } else {
+                map.removeLayer(nodeDegreesLayers[this.id]);
+              }
+            });
+            var label = document.createElement("label");
+            label.htmlFor = stopID;
+            label.appendChild(document.createTextNode(stopID));
+            $("#layerList").append(checkbox);
+            $("#layerList").append(label);
+          }
+
           // 显示节点的出度和入度
           displayNodeDegrees();
 
           function displayNodeDegrees() {
-            let sortedNodesByOutDegree = Object.keys(nodeDegreesLayers).sort(
-              function (a, b) {
+            let sortedNodesByOutDegree = nodes
+              .map((node) => node.stop_id)
+              .sort(function (a, b) {
                 return (
                   nodes.find((node) => node.stop_id === b).out_edges.length -
                   nodes.find((node) => node.stop_id === a).out_edges.length
                 );
-              }
-            );
+              });
 
-            let sortedNodesByInDegree = Object.keys(nodeDegreesLayers).sort(
-              function (a, b) {
+            let sortedNodesByInDegree = nodes
+              .map((node) => node.stop_id)
+              .sort(function (a, b) {
                 return (
                   nodes.find((node) => node.stop_id === b).in_edges.length -
                   nodes.find((node) => node.stop_id === a).in_edges.length
                 );
-              }
-            );
+              });
 
             $("#outDegreesList").empty();
             $("#inDegreesList").empty();
