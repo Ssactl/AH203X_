@@ -39,6 +39,19 @@
         max-height: 200px;
         padding-right: 10px;
         font-size: 18px; /* 设置字体大小 */
+        max-width: 50%;
+      }
+      .gradient-legend {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 200px;
+        height: 20px;
+        background: linear-gradient(to right, blue, white, red);
+      }
+
+      .gradient-legend span {
+        font-size: 12px;
       }
     </style>
   </head>
@@ -70,14 +83,16 @@
         }
       ).addTo(map);
 
+      let apiKey = "6b6bb9ae-ee2c-494c-8f31-2ba2275e828e";
+
       let Stadia_AlidadeSmooth = L.tileLayer(
-        "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.{ext}",
+        "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=" +
+          apiKey,
         {
           minZoom: 0,
           maxZoom: 20,
           attribution:
             '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          ext: "png",
         }
       ).addTo(map);
 
@@ -87,9 +102,12 @@
         Stadia_AlidadeSmooth: Stadia_AlidadeSmooth,
       };
 
-      var overlayLayers = {
+      var overlayLayers_connection = {
         "connection/path == 1": L.layerGroup().addTo(map),
         "connection/path == 0": L.layerGroup().addTo(map),
+      };
+
+      var overlayLayers_lag = {
         "timelag == 1": L.layerGroup().addTo(map),
         "timelag == 0": L.layerGroup().addTo(map),
       };
@@ -100,7 +118,10 @@
       var mapLag1 = true;
 
       // Add layers control to map
-      var layerControl = L.control.layers(baseLayers, overlayLayers).addTo(map);
+      var layerControl = L.control
+        .layers(baseLayers, overlayLayers_connection)
+        .addTo(map);
+      L.control.layers(null, overlayLayers_lag).addTo(map);
 
       //
       var degreeAndNodeLayers = {
@@ -113,6 +134,7 @@
       var mapInEdges = true;
       var mapOutNodes = true;
       var mapInNodes = true;
+
       var degreeAndNodeLayerControl = L.control
         .layers(null, degreeAndNodeLayers)
         .addTo(map);
@@ -225,6 +247,21 @@
           }
         }
       }
+
+      // 创建一个 Leaflet 控件来显示渐变色条
+      var legend = L.control({ position: "bottomright" });
+
+      legend.onAdd = function (map) {
+        var div = L.DomUtil.create("div", "gradient-legend");
+        div.innerHTML = "<span>-1</span><span>0</span><span>1</span>";
+        // 设置渐变色条的样式
+        div.style.background =
+          "linear-gradient(to right, #2c7bb6, #ffffff, #d7191c)";
+        return div;
+      };
+
+      // 将控件添加到地图上
+      legend.addTo(map);
 
       fetch("1_06_09_nodes.json")
         .then((response) => response.json())
@@ -344,8 +381,23 @@
                   addToLayer(lag, connection, marker);
                   addToNodeLayer(lag, connection, marker);
 
-                  // 创建折线
-                  let polyline = L.polyline([sourceCoords, nodeCoords]);
+                  // 根据 mci 值设置颜色和粗细
+                  let mci = edge[2].mci_partial_correlation;
+                  // 根据 mci 值创建渐变色
+                  let color;
+                  if (mci > 0) {
+                    // 正值为红色
+                    color = `rgba(215, 25, 28, ${mci})`; // 根据 mci 值动态设置透明度
+                  } else {
+                    // 负值为蓝色
+                    color = `rgba(44, 123, 182, ${Math.abs(mci)})`; // 根据 mci 值动态设置透明度
+                  }
+
+                  // 创建折线并设置样式
+                  let polyline = L.polyline([sourceCoords, nodeCoords], {
+                    color: color,
+                    weight: 3,
+                  });
                   addToLayer(lag, connection, polyline);
                   // 在这里自定义折线（颜色，粗细等）
                 }
@@ -401,7 +453,22 @@
                   addToNodeLayer(lag, connection, marker);
 
                   //
-                  let polyline = L.polyline([nodeCoords, targetCoords]);
+                  // 根据 mci 值设置颜色和粗细
+                  let mci = edge[2].mci_partial_correlation;
+                  // 根据 mci 值创建渐变色
+                  let color;
+                  if (mci > 0) {
+                    // 正值为红色
+                    color = `rgba(215, 25, 28, ${mci})`; // 根据 mci 值动态设置透明度
+                  } else {
+                    // 负值为蓝色
+                    color = `rgba(44, 123, 182, ${Math.abs(mci)})`; // 根据 mci 值动态设置透明度
+                  }
+
+                  let polyline = L.polyline([nodeCoords, targetCoords], {
+                    color: color,
+                    weight: 3,
+                  });
                   addToLayer(lag, connection, polyline);
                   // Customize polyline here (color, weight, etc.)
                 }
@@ -434,45 +501,11 @@
             .addEventListener("click", function () {
               // 获取用户选择的值
               let mciCount = $("#mciCountInput").val();
-              console.log(mciCount);
+              // console.log(mciCount);
               // 根据选择的值更新地图上的边的显示
               updateDisplay(mciCount);
             });
           ////////////////////////////////////////// search bar
-          function returnids(stopID) {
-            let ids = [
-              stopID + "_0_0",
-              stopID + "_0_1",
-              stopID + "_1_0",
-              stopID + "_1_1",
-            ];
-
-            if (!mapConnection0 || !mapLag0) {
-              let index = ids.indexOf(stopID + "_0_0");
-              if (index !== -1) {
-                ids.splice(index, 1);
-              }
-            }
-            if (!mapConnection0 || !mapLag1) {
-              let index = ids.indexOf(stopID + "_0_1");
-              if (index !== -1) {
-                ids.splice(index, 1);
-              }
-            }
-            if (!mapConnection1 || !mapLag0) {
-              let index = ids.indexOf(stopID + "_1_0");
-              if (index !== -1) {
-                ids.splice(index, 1);
-              }
-            }
-            if (!mapConnection1 || !mapLag1) {
-              let index = ids.indexOf(stopID + "_1_1");
-              if (index !== -1) {
-                ids.splice(index, 1);
-              }
-            }
-            return ids;
-          }
           // 添加搜索功能
           $("#searchButton").click(function () {
             let stopID = $("#searchInput").val();
@@ -621,7 +654,19 @@
               // 如果 "Out" 复选框被选中，则执行相应操作
               mapOutEdges = true;
               mapOutNodes = true;
-              addExistingLayers();
+              // 获取所有复选框
+              let checkboxes = document.querySelectorAll(
+                '#layerList input[type="checkbox"]'
+              );
+              // 遍历复选框
+              checkboxes.forEach(function (checkbox) {
+                // 如果复选框被选中，则将其对应的停止添加到已选列表中
+                if (checkbox.checked) {
+                  let ids = returnids(checkbox.id);
+                  checkboxAddLayers(ids);
+                }
+              });
+              // addExistingLayers();
               degreeAndNodeLayerControl.addOverlay(
                 degreeAndNodeLayers["out edges"],
                 "out edges"
@@ -634,8 +679,8 @@
               // 如果 "Out" 复选框未被选中，则执行相应操作
               mapOutEdges = false;
               mapOutNodes = false;
-              removeAllLayers("outedges", false);
-              removeAllLayers("outnodes", false);
+              removeAllLayers("outedges");
+              removeAllLayers("outnodes");
               degreeAndNodeLayerControl.removeLayer(
                 degreeAndNodeLayers["out edges"]
               ); // 从图层控制器中删除 "Out" 选项
@@ -652,7 +697,19 @@
               // 如果 "In" 复选框被选中，则执行相应操作
               mapInEdges = true;
               mapInNodes = true;
-              addExistingLayers();
+              // 获取所有复选框
+              let checkboxes = document.querySelectorAll(
+                '#layerList input[type="checkbox"]'
+              );
+              // 遍历复选框
+              checkboxes.forEach(function (checkbox) {
+                // 如果复选框被选中，则将其对应的停止添加到已选列表中
+                if (checkbox.checked) {
+                  let ids = returnids(checkbox.id);
+                  checkboxAddLayers(ids);
+                }
+              });
+              // addExistingLayers();
               degreeAndNodeLayerControl.addOverlay(
                 degreeAndNodeLayers["in edges"],
                 "in edges"
@@ -665,8 +722,8 @@
               // 如果 "In" 复选框未被选中，则执行相应操作
               mapInEdges = false;
               mapInNodes = false;
-              removeAllLayers("inedges", false);
-              removeAllLayers("innodes", false);
+              removeAllLayers("inedges");
+              removeAllLayers("innodes");
               degreeAndNodeLayerControl.removeLayer(
                 degreeAndNodeLayers["in edges"]
               ); // 从图层控制器中删除 "Out" 选项
@@ -682,8 +739,38 @@
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      //
+      function returnids(stopid) {
+        let ids = [];
+        let id;
+        // 检查 connection0
+        if (mapConnection0) {
+          //如果mapLag0也勾选着
+          if (mapLag0) {
+            id = stopid + "_0_0";
+            ids.push(id);
+          }
+          //如果mapLag1也勾选着
+          if (mapLag1) {
+            id = stopid + "_0_1";
+            ids.push(id);
+          }
+        }
+        // 检查 connection1
+        if (mapConnection1) {
+          //如果mapConnection0也勾选着
+          if (mapLag0) {
+            id = stopid + "_1_0";
+            ids.push(id);
+          }
+          //如果mapConnection1也勾选着
+          if (mapLag1) {
+            id = stopid + "_1_1";
+            ids.push(id);
+          }
+        }
+        return ids;
+      }
+      //当只操作connection和lag 图层控制时
       function removeLayerFromSelectedLayers(index, value) {
         let foriterate = ["outedges", "inedges", "innodes", "outnodes"];
         foriterate.forEach((key) => {
@@ -704,35 +791,65 @@
             selectedlayers[key] = newSelectedLayers;
           }
         });
+        console.log(selectedlayers);
       }
 
+      //当操作stop的checkbox可以用
+      //当操作in和outchechbox
       function checkboxAddLayers(ids) {
+        let checkedCount = 0;
+        // 获取所有复选框
+        let checkboxes = document.querySelectorAll(
+          '#layerList input[type="checkbox"]'
+        );
+
+        checkboxes.forEach(function (checkbox) {
+          if (checkbox.checked) {
+            checkedCount++;
+          }
+        });
+
+        let maxlen = checkedCount * 4;
+
         ids.forEach((id) => {
           if (
             mapOutEdges &&
-            selectedlayers["outedges"].length < ids.length * 4
+            selectedlayers["outedges"].length < maxlen &&
+            !selectedlayers["outedges"].includes(id)
           ) {
             map.addLayer(stoplayers["outedges"][id]);
             selectedlayers["outedges"].push(id);
           }
-          if (mapInEdges && selectedlayers["inedges"].length < ids.length * 4) {
+          if (
+            mapInEdges &&
+            selectedlayers["inedges"].length < maxlen &&
+            !selectedlayers["inedges"].includes(id)
+          ) {
             map.addLayer(stoplayers["inedges"][id]);
             selectedlayers["inedges"].push(id);
           }
-          if (mapInNodes && selectedlayers["innodes"].length < ids.length * 4) {
+          if (
+            mapInNodes &&
+            selectedlayers["innodes"].length < maxlen &&
+            !selectedlayers["innodes"].includes(id)
+          ) {
             map.addLayer(stoplayers["innodes"][id]);
             selectedlayers["innodes"].push(id);
           }
           if (
             mapOutNodes &&
-            selectedlayers["outnodes"].length < ids.length * 4
+            selectedlayers["outnodes"].length < maxlen &&
+            !selectedlayers["outnodes"].includes(id)
           ) {
             map.addLayer(stoplayers["outnodes"][id]);
             selectedlayers["outnodes"].push(id);
           }
         });
+        console.log("checked:", checkedCount, "array_maxlen:", maxlen);
+        console.log(selectedlayers);
       }
 
+      //当只操作connection和lag 图层控制时
       function addLayerFromSelectedLayers(index, value) {
         let checkedStops = [];
         // 获取所有复选框
@@ -777,11 +894,11 @@
             }
           }
           checkboxAddLayers(ids);
-          console.log(selectedlayers);
         });
       }
 
-      function removeAllLayers(key, deleteAll) {
+      //当操作in和out图层控制时
+      function removeAllLayers(key, deleteAll = true) {
         console.log(key, selectedlayers[key]);
         // 遍历原始数组
         selectedlayers[key].forEach((element) => {
@@ -794,8 +911,8 @@
         console.log(selectedlayers);
       }
 
+      //当操作in和out图层控制时
       function addAllLayers(key) {
-        let checkedStops = [];
         // 获取所有复选框
         let checkboxes = document.querySelectorAll(
           '#layerList input[type="checkbox"]'
@@ -804,45 +921,11 @@
         checkboxes.forEach(function (checkbox) {
           // 如果复选框被选中，则将其对应的停止添加到已选列表中
           if (checkbox.checked) {
-            checkedStops.push(checkbox.id);
+            let ids = returnids(checkbox.id);
+            checkboxAddLayers(ids);
           }
         });
-
-        checkedStops.forEach((stopid) => {
-          let ids = [];
-          let id;
-          // 检查 connection0
-          if (mapConnection0) {
-            //如果mapLag0也勾选着
-            if (mapLag0) {
-              id = stopid + "_0_0";
-              ids.push(id);
-            }
-            //如果mapLag1也勾选着
-            if (mapLag1) {
-              id = stopid + "_0_1";
-              ids.push(id);
-            }
-          }
-          // 检查 connection1
-          if (mapConnection1) {
-            //如果mapConnection0也勾选着
-            if (mapLag0) {
-              id = stopid + "_1_0";
-              ids.push(id);
-            }
-            //如果mapConnection1也勾选着
-            if (mapConnection1) {
-              id = stopid + "_1_1";
-              ids.push(id);
-            }
-          }
-          ids.forEach((id) => {
-            map.addLayer(stoplayers[key][id]);
-            selectedlayers[key].push(id);
-          });
-          console.log(selectedlayers);
-        });
+        console.log(selectedlayers);
       }
 
       // 监听图层控制的勾选事件
@@ -863,16 +946,16 @@
           removeLayerFromSelectedLayers(3, 1);
         } else if (eventLayer.name === "out edges") {
           mapOutEdges = false;
-          removeAllLayers("outedges", true);
+          removeAllLayers("outedges");
         } else if (eventLayer.name === "in edges") {
           mapInEdges = false;
-          removeAllLayers("inedges", true);
+          removeAllLayers("inedges");
         } else if (eventLayer.name === "out nodes") {
           mapOutNodes = false;
-          removeAllLayers("outnodes", true);
+          removeAllLayers("outnodes");
         } else if (eventLayer.name === "in nodes") {
           mapInNodes = false;
-          removeAllLayers("innodes", true);
+          removeAllLayers("innodes");
         }
       });
       map.on("overlayadd", function (eventLayer) {
