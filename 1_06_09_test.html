@@ -111,7 +111,7 @@
       };
       var mapOutEdges = true;
       var mapInEdges = true;
-      var mapOutNodse = true;
+      var mapOutNodes = true;
       var mapInNodes = true;
       var degreeAndNodeLayerControl = L.control
         .layers(null, degreeAndNodeLayers)
@@ -618,7 +618,7 @@
             if (outCheckbox.checked) {
               // 如果 "Out" 复选框被选中，则执行相应操作
               mapOutEdges = true;
-              mapOutNodse = true;
+              mapOutNodes = true;
               addExistingLayers();
               degreeAndNodeLayerControl.addOverlay(
                 degreeAndNodeLayers["out edges"],
@@ -631,7 +631,7 @@
             } else {
               // 如果 "Out" 复选框未被选中，则执行相应操作
               mapOutEdges = false;
-              mapOutNodse = false;
+              mapOutNodes = false;
               removeAllLayers("outedges", false);
               removeAllLayers("outnodes", false);
               degreeAndNodeLayerControl.removeLayer(
@@ -649,7 +649,7 @@
             if (inCheckbox.checked) {
               // 如果 "In" 复选框被选中，则执行相应操作
               mapInEdges = true;
-              mapInNodse = true;
+              mapInNodes = true;
               addExistingLayers();
               degreeAndNodeLayerControl.addOverlay(
                 degreeAndNodeLayers["in edges"],
@@ -662,7 +662,7 @@
             } else {
               // 如果 "In" 复选框未被选中，则执行相应操作
               mapInEdges = false;
-              mapInNodse = false;
+              mapInNodes = false;
               removeAllLayers("inedges", false);
               removeAllLayers("innodes", false);
               degreeAndNodeLayerControl.removeLayer(
@@ -722,7 +722,7 @@
             selectedlayers["innodes"].push(id);
           }
           if (
-            mapOutNodse &&
+            mapOutNodes &&
             selectedlayers["outnodes"].length < ids.length * 4
           ) {
             map.addLayer(stoplayers["outnodes"][id]);
@@ -866,10 +866,10 @@
           mapInEdges = false;
           removeAllLayers("inedges", true);
         } else if (eventLayer.name === "out nodes") {
-          mapOutEdges = true;
+          mapOutNodes = false;
           removeAllLayers("outnodes", true);
         } else if (eventLayer.name === "in nodes") {
-          mapOutEdges = true;
+          mapInNodes = false;
           removeAllLayers("innodes", true);
         }
       });
@@ -896,10 +896,10 @@
           mapInEdges = true;
           addAllLayers("inedges");
         } else if (eventLayer.name === "out nodes") {
-          mapOutEdges = true;
+          mapOutNodes = true;
           addAllLayers("outnodes");
         } else if (eventLayer.name === "in nodes") {
-          mapOutEdges = true;
+          mapInNodes = true;
           addAllLayers("innodes");
         }
       });
