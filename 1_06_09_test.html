@@ -126,8 +126,8 @@
       //
       var degreeAndNodeLayers = {
         "out edges": L.layerGroup().addTo(map),
-        "in edges": L.layerGroup().addTo(map),
         "out nodes": L.layerGroup().addTo(map),
+        "in edges": L.layerGroup().addTo(map),
         "in nodes": L.layerGroup().addTo(map),
       };
       var mapOutEdges = true;
@@ -217,11 +217,11 @@
       ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       // Load JSON file and create layers
-      var stoplayers = { outedges: {}, inedges: {}, outnodes: {}, innodes: {} };
+      var stoplayers = { outedges: {}, outnodes: {}, inedges: {}, innodes: {} };
       var selectedlayers = {
         outedges: [],
-        inedges: [],
         outnodes: [],
+        inedges: [],
         innodes: [],
       };
 
