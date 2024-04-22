@@ -670,11 +670,13 @@
               degreeAndNodeLayerControl.addOverlay(
                 degreeAndNodeLayers["out edges"],
                 "out edges"
-              ); // 允许用户在图层控制器中选择 "Out"
+              );
               degreeAndNodeLayerControl.addOverlay(
                 degreeAndNodeLayers["out nodes"],
                 "out nodes"
-              ); // 允许用户在图层控制器中选择 "Out"
+              );
+              degreeAndNodeLayers["out edges"].addTo(map);
+              degreeAndNodeLayers["out nodes"].addTo(map);
             } else {
               // 如果 "Out" 复选框未被选中，则执行相应操作
               mapOutEdges = false;
@@ -687,6 +689,9 @@
               degreeAndNodeLayerControl.removeLayer(
                 degreeAndNodeLayers["out nodes"]
               ); // 从图层控制器中删除 "Out" 选项
+              // 取消勾选 out edges 和 in edges 图层
+              map.removeLayer(degreeAndNodeLayers["out edges"]);
+              map.removeLayer(degreeAndNodeLayers["out nodes"]);
             }
           });
 
@@ -718,6 +723,8 @@
                 degreeAndNodeLayers["in nodes"],
                 "in nodes"
               );
+              degreeAndNodeLayers["in edges"].addTo(map);
+              degreeAndNodeLayers["in nodes"].addTo(map);
             } else {
               // 如果 "In" 复选框未被选中，则执行相应操作
               mapInEdges = false;
@@ -726,10 +733,12 @@
               removeAllLayers("innodes");
               degreeAndNodeLayerControl.removeLayer(
                 degreeAndNodeLayers["in edges"]
-              ); // 从图层控制器中删除 "Out" 选项
+              ); // 从图层控制器中删除 "In" 选项
               degreeAndNodeLayerControl.removeLayer(
                 degreeAndNodeLayers["in nodes"]
-              ); // 从图层控制器中删除 "Out" 选项
+              ); // 从图层控制器中删除 "In" 选项
+              map.removeLayer(degreeAndNodeLayers["in edges"]);
+              map.removeLayer(degreeAndNodeLayers["in nodes"]);
             }
           });
         })
