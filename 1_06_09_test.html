@@ -525,7 +525,9 @@
                 edge[0]
               }, Target: ${edge[1]}, |MCI|: ${Math.abs(
                 edge[2].mci_partial_correlation
-              )}, MCI: ${edge[2].mci_partial_correlation}`;
+              )}, MCI: ${edge[2].mci_partial_correlation}, Correlation: ${
+                edge[2].correlation
+              }, Lag: ${edge[2].lag}, Path: ${edge[2].connection}`;
               // listItem.style.fontSize = "18px"; // 设置字体大小
               edgeList.appendChild(listItem);
             });
